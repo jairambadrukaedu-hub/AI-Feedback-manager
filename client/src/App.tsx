@@ -2,16 +2,38 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { CreateLead } from './components/CreateLead';
 import { BulkUpload } from './components/BulkUpload';
 import { ManageLeads } from './components/ManageLeads';
+import { Login } from './components/Login';
+import { LogoutButton } from './components/LogoutButton';
 import { leadService } from './services/leadService';
 import { Lead, LeadFormData } from './types/Lead';
 
 function App() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [activeTab, setActiveTab] = useState<'create' | 'bulk' | 'manage'>('manage');
   const [leads, setLeads] = useState<Lead[]>([]);
   const [totalLeads, setTotalLeads] = useState(0);
   const [pendingCalls, setPendingCalls] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
+
+  // Check if user is already logged in on page load
+  useEffect(() => {
+    const loggedIn = localStorage.getItem('isLoggedIn') === 'true';
+    setIsLoggedIn(loggedIn);
+  }, []);
+
+  const handleLogin = () => {
+    setIsLoggedIn(true);
+  };
+
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+  };
+
+  // If not logged in, show login screen
+  if (!isLoggedIn) {
+    return <Login onLogin={handleLogin} />;
+  }
 
   const showNotification = useCallback((type: 'success' | 'error', message: string) => {
     setNotification({ type, message });
@@ -170,15 +192,18 @@ function App() {
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex justify-between items-center py-6">
             <h1 className="text-3xl font-bold text-gray-900">Feedback Manager</h1>
-            <div className="flex items-center space-x-6 text-sm text-gray-600">
-              <div className="flex items-center space-x-2">
-                <span>Total Customers:</span>
-                <span className="font-semibold text-gray-900">{totalLeads}</span>
+            <div className="flex items-center space-x-6">
+              <div className="flex items-center space-x-6 text-sm text-gray-600">
+                <div className="flex items-center space-x-2">
+                  <span>Total Customers:</span>
+                  <span className="font-semibold text-gray-900">{totalLeads}</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span>Pending Feedback:</span>
+                  <span className="font-semibold" style={{ color: '#f59e0b' }}>{pendingCalls}</span>
+                </div>
               </div>
-              <div className="flex items-center space-x-2">
-                <span>Pending Feedback:</span>
-                <span className="font-semibold" style={{ color: '#f59e0b' }}>{pendingCalls}</span>
-              </div>
+              <LogoutButton onLogout={handleLogout} />
             </div>
           </div>
         </div>
