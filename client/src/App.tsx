@@ -16,25 +16,6 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
 
-  // Check if user is already logged in on page load
-  useEffect(() => {
-    const loggedIn = localStorage.getItem('isLoggedIn') === 'true';
-    setIsLoggedIn(loggedIn);
-  }, []);
-
-  const handleLogin = () => {
-    setIsLoggedIn(true);
-  };
-
-  const handleLogout = () => {
-    setIsLoggedIn(false);
-  };
-
-  // If not logged in, show login screen
-  if (!isLoggedIn) {
-    return <Login onLogin={handleLogin} />;
-  }
-
   const showNotification = useCallback((type: 'success' | 'error', message: string) => {
     setNotification({ type, message });
   }, []);
@@ -51,9 +32,30 @@ function App() {
     }
   }, [showNotification]);
 
+  // Check if user is already logged in on page load
   useEffect(() => {
-    fetchLeads();
-  }, [fetchLeads]);
+    const loggedIn = localStorage.getItem('isLoggedIn') === 'true';
+    setIsLoggedIn(loggedIn);
+  }, []);
+
+  useEffect(() => {
+    if (isLoggedIn) {
+      fetchLeads();
+    }
+  }, [fetchLeads, isLoggedIn]);
+
+  const handleLogin = () => {
+    setIsLoggedIn(true);
+  };
+
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+  };
+
+  // If not logged in, show login screen
+  if (!isLoggedIn) {
+    return <Login onLogin={handleLogin} />;
+  }
 
   const handleCreateLead = async (leadData: LeadFormData) => {
     console.log('🚀 handleCreateLead called with data:', leadData);

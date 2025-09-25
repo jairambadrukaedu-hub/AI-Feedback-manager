@@ -1,9 +1,11 @@
 {
-  "name": "lead-manager",
+  "name": "feedback-manager",
   "version": "1.0.0",
-  "description": "Full-stack Lead Manager with AI-powered calling",
+  "description": "AI-powered customer feedback collection system",
   "main": "server/index.js",
   "scripts": {
+    "start": "cd server && npm install && node index.js",
+    "build:all": "cd server && npm install && cd ../client && npm install && npm run build",
     "dev": "concurrently \"npm run server\" \"npm run client\"",
     "server": "cd server && nodemon index.js",
     "client": "cd client && npm start",
@@ -11,12 +13,12 @@
     "install-all": "npm install && cd server && npm install && cd ../client && npm install"
   },
   "keywords": [
-    "lead-manager",
+    "feedback-manager",
     "ai-calling",
     "vapi",
-    "twilio"
+    "customer-management"
   ],
-  "author": "Lead Manager Team",
+  "author": "jairambadrukaedu",
   "license": "MIT",
   "devDependencies": {
     "concurrently": "^8.2.0"
