@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: feedback-manager
+    env: node
+    buildCommand: cd client && npm install && npm run build
+    startCommand: cd server && npm install && node index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        fromService:
+          type: web
+          name: feedback-manager
+          property: port
