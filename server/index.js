@@ -493,6 +493,68 @@ function insertBulkLeads(leads, res) {
 // Webhook endpoint for Vapi (still available if you find webhook settings)
 app.post('/api/webhook/call-completed', (req, res) => {
   console.log('🎯 Webhook received from Vapi:', JSON.stringify(req.body, null, 2));
+  
+  try {
+    const { call } = req.body;
+    
+    if (call && call.id) {
+      const callId = call.id;
+      const status = call.status;
+      
+      // Find the lead by call_id
+      db.get('SELECT * FROM leads WHERE call_id = ?', [callId], (err, lead) => {
+        if (err) {
+          console.error('❌ Database error finding lead:', err);
+          return;
+        }
+        
+        if (lead) {
+          console.log(`📞 Updating call status for lead ${lead.name} (${lead.phone})`);
+          
+          if (status === 'ended') {
+            // Extract feedback from the call
+            let feedbackData = null;
+            
+            if (call.transcript || call.summary || call.analysis) {
+              feedbackData = JSON.stringify({
+                summary: call.summary || 'Call completed successfully',
+                transcript: call.transcript || '',
+                duration: call.duration || 0,
+                status: call.status || 'ended',
+                analysis: call.analysis || {},
+                endedReason: call.endedReason || 'completed'
+              });
+            }
+            
+            // Update lead status to completed
+            const updateQuery = feedbackData 
+              ? 'UPDATE leads SET status = ?, feedback = ? WHERE call_id = ?'
+              : 'UPDATE leads SET status = ? WHERE call_id = ?';
+            
+            const updateParams = feedbackData 
+              ? ['completed', feedbackData, callId]
+              : ['completed', callId];
+            
+            db.run(updateQuery, updateParams, function(updateErr) {
+              if (updateErr) {
+                console.error('❌ Error updating lead:', updateErr);
+              } else {
+                console.log(`✅ Successfully updated lead ${lead.name} to completed status`);
+                if (feedbackData) {
+                  console.log('📝 Feedback saved for lead:', lead.name);
+                }
+              }
+            });
+          }
+        } else {
+          console.log(`⚠️ No lead found with call_id: ${callId}`);
+        }
+      });
+    }
+  } catch (error) {
+    console.error('❌ Error processing webhook:', error);
+  }
+  
   res.json({ message: 'Webhook received successfully' });
 });
 
