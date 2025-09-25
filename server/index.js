@@ -95,6 +95,46 @@ app.post('/api/leads', (req, res) => {
   stmt.finalize();
 });
 
+// Delete a single lead
+app.delete('/api/leads/:id', (req, res) => {
+  const leadId = req.params.id;
+  
+  if (!leadId) {
+    return res.status(400).json({ error: 'Lead ID is required' });
+  }
+  
+  // Check if lead exists first
+  db.get('SELECT * FROM leads WHERE id = ?', [leadId], (err, lead) => {
+    if (err) {
+      console.error('Database error:', err);
+      return res.status(500).json({ error: 'Database error' });
+    }
+    
+    if (!lead) {
+      return res.status(404).json({ error: 'Lead not found' });
+    }
+    
+    // Delete the lead
+    db.run('DELETE FROM leads WHERE id = ?', [leadId], function(err) {
+      if (err) {
+        console.error('Error deleting lead:', err);
+        return res.status(500).json({ error: 'Failed to delete lead' });
+      }
+      
+      console.log(`✅ Deleted lead: ${lead.name} (ID: ${leadId})`);
+      res.json({
+        message: 'Lead deleted successfully',
+        deletedLead: {
+          id: lead.id,
+          name: lead.name,
+          phone: lead.phone,
+          email: lead.email
+        }
+      });
+    });
+  });
+});
+
 // Function to format phone number to E.164
 function formatPhoneToE164(phone) {
   // Remove all non-digit characters
@@ -671,12 +711,13 @@ app.listen(PORT, () => {
   console.log('- GET  /api/call/status/:callId - Check single call status');
   console.log('- POST /api/calls/check-status - Check all pending calls');
   console.log(`\nAPI endpoints:`);
-  console.log(`- GET  /api/leads - Get all leads`);
-  console.log(`- POST /api/leads - Create single lead`);
-  console.log(`- POST /api/leads/bulk - Bulk upload leads`);
-  console.log(`- POST /api/call/:id - Call single lead`);
-  console.log(`- POST /api/call/bulk - Call all pending leads`);
-  console.log(`- GET  /api/sample-csv - Download sample CSV`);
+  console.log(`- GET    /api/leads - Get all leads`);
+  console.log(`- POST   /api/leads - Create single lead`);
+  console.log(`- DELETE /api/leads/:id - Delete single lead`);
+  console.log(`- POST   /api/leads/bulk - Bulk upload leads`);
+  console.log(`- POST   /api/call/:id - Call single lead`);
+  console.log(`- POST   /api/call/bulk - Call all pending leads`);
+  console.log(`- GET    /api/sample-csv - Download sample CSV`);
 });
 
 // Graceful shutdown
