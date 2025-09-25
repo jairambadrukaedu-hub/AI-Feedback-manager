@@ -23,7 +23,22 @@ function App() {
   const fetchLeads = useCallback(async () => {
     try {
       const response = await leadService.getLeads();
-      setLeads(response.leads);
+      
+      // Sort leads: completed first, then calling, then pending
+      const sortedLeads = response.leads.sort((a: Lead, b: Lead) => {
+        const statusOrder = { 'completed': 0, 'calling': 1, 'pending': 2 };
+        const aOrder = statusOrder[a.status as keyof typeof statusOrder] ?? 3;
+        const bOrder = statusOrder[b.status as keyof typeof statusOrder] ?? 3;
+        
+        if (aOrder !== bOrder) {
+          return aOrder - bOrder;
+        }
+        
+        // If same status, sort by creation date (newest first)
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
+      
+      setLeads(sortedLeads);
       setTotalLeads(response.total);
       setPendingCalls(response.pending);
     } catch (error) {
