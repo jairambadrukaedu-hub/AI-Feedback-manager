@@ -3,7 +3,7 @@ export interface Lead {
   name: string;
   phone: string;
   email: string;
-  status: 'pending' | 'calling' | 'completed';
+  status: 'pending' | 'calling' | 'completed' | 'rejected';
   feedback?: string;
   created_at: string;
   called_at?: string;

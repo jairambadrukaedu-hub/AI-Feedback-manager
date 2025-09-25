@@ -272,6 +272,11 @@ export const ManageLeads: React.FC<ManageLeadsProps> = ({
                             ✅ Completed
                           </span>
                         )}
+                        {lead.status === 'rejected' && (
+                          <span style={{ color: '#ef4444', fontSize: '12px' }}>
+                            ❌ Rejected
+                          </span>
+                        )}
                         <button
                           onClick={() => onDeleteLead(lead.id)}
                           className="btn btn-sm btn-danger"

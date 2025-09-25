@@ -24,11 +24,11 @@ function App() {
     try {
       const response = await leadService.getLeads();
       
-      // Sort leads: completed first, then calling, then pending
+      // Sort leads: completed first, then rejected, then calling, then pending
       const sortedLeads = response.leads.sort((a: Lead, b: Lead) => {
-        const statusOrder = { 'completed': 0, 'calling': 1, 'pending': 2 };
-        const aOrder = statusOrder[a.status as keyof typeof statusOrder] ?? 3;
-        const bOrder = statusOrder[b.status as keyof typeof statusOrder] ?? 3;
+        const statusOrder = { 'completed': 0, 'rejected': 1, 'calling': 2, 'pending': 3 };
+        const aOrder = statusOrder[a.status as keyof typeof statusOrder] ?? 4;
+        const bOrder = statusOrder[b.status as keyof typeof statusOrder] ?? 4;
         
         if (aOrder !== bOrder) {
           return aOrder - bOrder;

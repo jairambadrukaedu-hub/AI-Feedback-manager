@@ -341,25 +341,42 @@ app.post('/api/calls/check-status', async (req, res) => {
             
             const callData = response.data;
             
-            if (callData.status === 'ended' && callData.analysis) {
+            if (callData.status === 'ended') {
+              // Determine the final status based on end reason and call quality
+              let finalStatus = 'completed';
+              const endReason = callData.endedReason || '';
+              const hasConversation = callData.transcript && callData.transcript.length > 100;
+              const hasAnalysis = callData.analysis && (callData.analysis.summary || callData.analysis.successEvaluation);
+              
+              // Check for rejection indicators
+              if ((endReason.includes('customer-hung-up') || 
+                   endReason.includes('customer-ended-call') || 
+                   endReason.includes('rejected') ||
+                   (callData.duration && callData.duration < 10)) && 
+                  !hasConversation && !hasAnalysis) {
+                finalStatus = 'rejected';
+              }
+              
               const feedback = {
-                summary: callData.analysis.summary || '',
+                summary: finalStatus === 'rejected' 
+                  ? 'Call was rejected or ended quickly'
+                  : (callData.analysis?.summary || callData.summary || 'Call completed'),
                 transcript: callData.transcript || '',
                 duration: callData.duration || 0,
                 status: callData.status || '',
-                analysis: callData.analysis,
-                endedReason: callData.endedReason || ''
+                analysis: callData.analysis || (finalStatus === 'rejected' ? { summary: 'Call rejected by customer' } : {}),
+                endedReason: endReason
               };
               
               // Update this specific lead
               await new Promise((resolve, reject) => {
                 db.run(
                   'UPDATE leads SET feedback = ?, status = ? WHERE id = ?',
-                  [JSON.stringify(feedback), 'completed', lead.id],
+                  [JSON.stringify(feedback), finalStatus, lead.id],
                   function(err) {
                     if (err) reject(err);
                     else {
-                      console.log(`✅ Updated feedback for lead ${lead.id} (${lead.name})`);
+                      console.log(`✅ Updated ${finalStatus} status for lead ${lead.id} (${lead.name})`);
                       updatedCount++;
                       resolve();
                     }
@@ -512,28 +529,57 @@ app.post('/api/webhook/call-completed', (req, res) => {
           console.log(`📞 Updating call status for lead ${lead.name} (${lead.phone})`);
           
           if (status === 'ended') {
-            // Extract feedback from the call
+            // Determine the final status based on end reason
+            let finalStatus = 'completed';
             let feedbackData = null;
             
-            if (call.transcript || call.summary || call.analysis) {
+            // Check for rejection reasons
+            const endReason = call.endedReason || '';
+            if (endReason.includes('customer-hung-up') || 
+                endReason.includes('customer-ended-call') || 
+                endReason.includes('rejected') ||
+                (call.duration && call.duration < 10)) { // Very short calls might be rejections
+              
+              // Check if there's any meaningful conversation
+              const hasConversation = call.transcript && call.transcript.length > 100;
+              const hasAnalysis = call.analysis && (call.analysis.summary || call.analysis.successEvaluation);
+              
+              if (!hasConversation && !hasAnalysis) {
+                finalStatus = 'rejected';
+                feedbackData = JSON.stringify({
+                  summary: 'Call was rejected or ended quickly',
+                  transcript: call.transcript || 'No meaningful conversation',
+                  duration: call.duration || 0,
+                  status: call.status || 'ended',
+                  analysis: { summary: 'Call rejected by customer' },
+                  endedReason: endReason
+                });
+              } else {
+                // Even if hung up, if there was conversation, mark as completed
+                finalStatus = 'completed';
+              }
+            }
+            
+            // Extract feedback from successful calls
+            if (finalStatus === 'completed' && (call.transcript || call.summary || call.analysis)) {
               feedbackData = JSON.stringify({
-                summary: call.summary || 'Call completed successfully',
+                summary: call.summary || call.analysis?.summary || 'Call completed successfully',
                 transcript: call.transcript || '',
                 duration: call.duration || 0,
                 status: call.status || 'ended',
                 analysis: call.analysis || {},
-                endedReason: call.endedReason || 'completed'
+                endedReason: endReason
               });
             }
             
-            // Update lead status to completed
+            // Update lead status
             const updateQuery = feedbackData 
               ? 'UPDATE leads SET status = ?, feedback = ? WHERE call_id = ?'
               : 'UPDATE leads SET status = ? WHERE call_id = ?';
             
             const updateParams = feedbackData 
-              ? ['completed', feedbackData, callId]
-              : ['completed', callId];
+              ? [finalStatus, feedbackData, callId]
+              : [finalStatus, callId];
             
             db.run(updateQuery, updateParams, function(updateErr) {
               if (updateErr) {
