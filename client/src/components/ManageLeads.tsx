@@ -12,6 +12,7 @@ interface ManageLeadsProps {
   onRefresh: () => void;
   onCheckStatus: () => Promise<void>;
   isLoading: boolean;
+  userRole: 'feedback' | 'marketing';
 }
 
 export const ManageLeads: React.FC<ManageLeadsProps> = ({
@@ -24,6 +25,7 @@ export const ManageLeads: React.FC<ManageLeadsProps> = ({
   onRefresh,
   onCheckStatus,
   isLoading,
+  userRole,
 }) => {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -137,7 +139,7 @@ export const ManageLeads: React.FC<ManageLeadsProps> = ({
         </button>
         {pendingCalls > 0 && (
           <button onClick={onBulkCall} className="btn btn-primary" style={{ marginLeft: '10px' }}>
-            📞 Call All ({pendingCalls})
+            📞 {userRole === 'marketing' ? 'Start Marketing Calls' : 'Call All'} ({pendingCalls})
           </button>
         )}
       </div>
@@ -156,7 +158,7 @@ export const ManageLeads: React.FC<ManageLeadsProps> = ({
                 <th>Phone</th>
                 <th>Email</th>
                 <th>Status</th>
-                <th>Feedback</th>
+                <th>{userRole === 'marketing' ? 'Results' : 'Feedback'}</th>
                 <th>Actions</th>
               </tr>
             </thead>

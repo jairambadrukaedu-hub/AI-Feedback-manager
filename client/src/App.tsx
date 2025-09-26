@@ -3,12 +3,16 @@ import { CreateLead } from './components/CreateLead';
 import { BulkUpload } from './components/BulkUpload';
 import { ManageLeads } from './components/ManageLeads';
 import { Login } from './components/Login';
+import { RoleSelection } from './components/RoleSelection';
 import { LogoutButton } from './components/LogoutButton';
 import { leadService } from './services/leadService';
 import { Lead, LeadFormData } from './types/Lead';
 
+type UserRole = 'feedback' | 'marketing';
+
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [activeTab, setActiveTab] = useState<'create' | 'bulk' | 'manage'>('manage');
   const [leads, setLeads] = useState<Lead[]>([]);
   const [totalLeads, setTotalLeads] = useState(0);
@@ -21,8 +25,10 @@ function App() {
   }, []);
 
   const fetchLeads = useCallback(async () => {
+    if (!userRole) return;
+    
     try {
-      const response = await leadService.getLeads();
+      const response = await leadService.getLeads(userRole);
       
       // Sort leads: completed first, then rejected, then calling, then pending
       const sortedLeads = response.leads.sort((a: Lead, b: Lead) => {
@@ -45,31 +51,37 @@ function App() {
       console.error('Failed to fetch leads:', error);
       showNotification('error', 'Failed to fetch leads. Make sure the backend server is running.');
     }
-  }, [showNotification]);
+  }, [showNotification, userRole]);
 
   // Check if user is already logged in on page load
   useEffect(() => {
     const loggedIn = localStorage.getItem('isLoggedIn') === 'true';
+    const role = localStorage.getItem('userRole') as UserRole;
     setIsLoggedIn(loggedIn);
+    setUserRole(role);
   }, []);
 
   useEffect(() => {
-    if (isLoggedIn) {
+    if (isLoggedIn && userRole) {
       fetchLeads();
     }
-  }, [fetchLeads, isLoggedIn]);
+  }, [fetchLeads, isLoggedIn, userRole]);
 
-  const handleLogin = () => {
+  const handleRoleSelect = (role: UserRole) => {
+    setUserRole(role);
     setIsLoggedIn(true);
   };
 
   const handleLogout = () => {
     setIsLoggedIn(false);
+    setUserRole(null);
+    localStorage.removeItem('isLoggedIn');
+    localStorage.removeItem('userRole');
   };
 
-  // If not logged in, show login screen
-  if (!isLoggedIn) {
-    return <Login onLogin={handleLogin} />;
+  // If not logged in, show role selection screen
+  if (!isLoggedIn || !userRole) {
+    return <RoleSelection onRoleSelect={handleRoleSelect} />;
   }
 
   const handleCreateLead = async (leadData: LeadFormData) => {
@@ -77,7 +89,8 @@ function App() {
     setIsLoading(true);
     try {
       console.log('📡 Making API call to create lead...');
-      const result = await leadService.createLead(leadData);
+      const leadWithCampaign = { ...leadData, campaign_type: userRole };
+      const result = await leadService.createLead(leadWithCampaign);
       console.log('✅ API call successful:', result);
       showNotification('success', 'Customer created successfully!');
       await fetchLeads();
@@ -100,7 +113,7 @@ function App() {
   const handleBulkUpload = async (file: File) => {
     setIsLoading(true);
     try {
-      const response = await leadService.uploadBulkLeads(file);
+      const response = await leadService.uploadBulkLeads(file, userRole);
       showNotification('success', response.message);
       await fetchLeads();
     } catch (error: any) {
@@ -202,13 +215,36 @@ function App() {
     }
   };
 
+  const getRoleBadge = () => {
+    if (userRole === 'feedback') {
+      return (
+        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+          💬 Customer Feedback
+        </span>
+      );
+    } else {
+      return (
+        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+          📈 Marketing Outreach
+        </span>
+      );
+    }
+  };
+
+  const getSystemTitle = () => {
+    return userRole === 'feedback' ? 'Feedback Manager' : 'Marketing Manager';
+  };
+
   return (
     <div className="min-h-screen bg-gray-100">
       {/* Header */}
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex justify-between items-center py-6">
-            <h1 className="text-3xl font-bold text-gray-900">Feedback Manager</h1>
+            <div className="flex items-center space-x-4">
+              <h1 className="text-3xl font-bold text-gray-900">{getSystemTitle()}</h1>
+              {getRoleBadge()}
+            </div>
             <div className="flex items-center space-x-6">
               <div className="flex items-center space-x-6 text-sm text-gray-600">
                 <div className="flex items-center space-x-2">
@@ -216,7 +252,7 @@ function App() {
                   <span className="font-semibold text-gray-900">{totalLeads}</span>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <span>Pending Feedback:</span>
+                  <span>Pending {userRole === 'feedback' ? 'Feedback' : 'Calls'}:</span>
                   <span className="font-semibold" style={{ color: '#f59e0b' }}>{pendingCalls}</span>
                 </div>
               </div>
@@ -340,6 +376,7 @@ function App() {
             onRefresh={fetchLeads}
             onCheckStatus={handleCheckStatus}
             isLoading={isLoading}
+            userRole={userRole}
           />
         )}
       </main>

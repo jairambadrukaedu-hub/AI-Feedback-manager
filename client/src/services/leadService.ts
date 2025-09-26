@@ -9,14 +9,15 @@ const api = axios.create({
 });
 
 export const leadService = {
-  // Get all customers
-  async getLeads(): Promise<{ leads: Lead[]; total: number; pending: number }> {
-    const response = await api.get('/leads');
+  // Get all customers (filtered by campaign type)
+  async getLeads(campaignType?: 'feedback' | 'marketing'): Promise<{ leads: Lead[]; total: number; pending: number }> {
+    const params = campaignType ? { campaign_type: campaignType } : {};
+    const response = await api.get('/leads', { params });
     return response.data;
   },
 
   // Create single customer
-  async createLead(leadData: LeadFormData): Promise<{ message: string; id: number }> {
+  async createLead(leadData: LeadFormData): Promise<{ message: string; id: number; campaign_type?: string }> {
     console.log('🌐 leadService.createLead called with:', leadData);
     console.log('🎯 API URL:', `${API_BASE_URL}/leads`);
     try {
@@ -30,9 +31,12 @@ export const leadService = {
   },
 
   // Upload bulk customers from file
-  async uploadBulkLeads(file: File): Promise<{ message: string; count: number }> {
+  async uploadBulkLeads(file: File, campaignType?: 'feedback' | 'marketing'): Promise<{ message: string; count: number }> {
     const formData = new FormData();
     formData.append('csvFile', file);
+    if (campaignType) {
+      formData.append('campaign_type', campaignType);
+    }
     
     const response = await api.post('/leads/bulk', formData, {
       headers: {

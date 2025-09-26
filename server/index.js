@@ -13,8 +13,20 @@ const PORT = process.env.PORT || 5000;
 
 // Vapi Configuration
 const VAPI_API_KEY = process.env.VAPI_API_KEY || 'd0b02cea-e204-4550-a834-ce48bfa3bf7c';
-const VAPI_ASSISTANT_ID = process.env.VAPI_ASSISTANT_ID || 'a8a7a43b-ffeb-429d-b986-e156b6a40bdf';
-const VAPI_PHONE_NUMBER_ID = process.env.VAPI_PHONE_NUMBER_ID || '720ecf1c-1434-4567-9e8f-ee59612843af';
+
+// Feedback AI Configuration
+const FEEDBACK_ASSISTANT_ID = process.env.FEEDBACK_ASSISTANT_ID || 'a8a7a43b-ffeb-429d-b986-e156b6a40bdf';
+const FEEDBACK_PHONE_NUMBER_ID = process.env.FEEDBACK_PHONE_NUMBER_ID || '720ecf1c-1434-4567-9e8f-ee59612843af';
+
+// Marketing AI Configuration (placeholders - you'll provide these)
+const MARKETING_ASSISTANT_ID = process.env.MARKETING_ASSISTANT_ID || 'MARKETING_ASSISTANT_TO_BE_PROVIDED';
+const MARKETING_PHONE_NUMBER_ID = process.env.MARKETING_PHONE_NUMBER_ID || 'MARKETING_PHONE_TO_BE_PROVIDED';
+
+// Authentication
+const AUTH_PASSWORDS = {
+  feedback: process.env.FEEDBACK_PASSWORD || 'feedback123',
+  marketing: process.env.MARKETING_PASSWORD || 'marketing123'
+};
 
 // Middleware
 app.use(cors());
@@ -29,7 +41,7 @@ if (fs.existsSync(buildPath)) {
 // Initialize SQLite database
 const db = new sqlite3.Database('./leads.db');
 
-// Create leads table with call_id column
+// Create leads table with call_id column and campaign_type
 db.serialize(() => {
   db.run(`CREATE TABLE IF NOT EXISTS leads (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -39,6 +51,7 @@ db.serialize(() => {
     status TEXT DEFAULT 'pending',
     feedback TEXT,
     call_id TEXT,
+    campaign_type TEXT DEFAULT 'feedback',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     called_at DATETIME
   )`);
@@ -49,14 +62,56 @@ db.serialize(() => {
       console.error('Error adding call_id column:', err);
     }
   });
+  
+  // Add campaign_type column if it doesn't exist (for existing databases)
+  db.run(`ALTER TABLE leads ADD COLUMN campaign_type TEXT DEFAULT 'feedback'`, (err) => {
+    if (err && !err.message.includes('duplicate column')) {
+      console.error('Error adding campaign_type column:', err);
+    }
+  });
 });
 
 // Multer configuration for file uploads
 const upload = multer({ dest: 'uploads/' });
 
-// Get all leads
+// Authentication endpoints
+app.post('/api/auth/login', (req, res) => {
+  const { password } = req.body;
+  
+  if (password === AUTH_PASSWORDS.feedback) {
+    res.json({ 
+      success: true, 
+      role: 'feedback',
+      message: 'Logged in to Customer Feedback system' 
+    });
+  } else if (password === AUTH_PASSWORDS.marketing) {
+    res.json({ 
+      success: true, 
+      role: 'marketing',
+      message: 'Logged in to Marketing system' 
+    });
+  } else {
+    res.status(401).json({ 
+      success: false, 
+      message: 'Invalid password' 
+    });
+  }
+});
+
+// Get all leads (filtered by campaign type)
 app.get('/api/leads', (req, res) => {
-  db.all('SELECT * FROM leads ORDER BY created_at DESC', [], (err, rows) => {
+  const { campaign_type } = req.query;
+  let query = 'SELECT * FROM leads';
+  let params = [];
+  
+  if (campaign_type) {
+    query += ' WHERE campaign_type = ?';
+    params.push(campaign_type);
+  }
+  
+  query += ' ORDER BY created_at DESC';
+  
+  db.all(query, params, (err, rows) => {
     if (err) {
       console.error('Database error:', err);
       return res.status(500).json({ error: 'Database error' });
@@ -74,14 +129,14 @@ app.get('/api/leads', (req, res) => {
 
 // Create a single lead
 app.post('/api/leads', (req, res) => {
-  const { name, phone, email } = req.body;
+  const { name, phone, email, campaign_type = 'feedback' } = req.body;
   
   if (!name || !phone || !email) {
     return res.status(400).json({ error: 'Name, phone, and email are required' });
   }
 
-  const stmt = db.prepare('INSERT INTO leads (name, phone, email) VALUES (?, ?, ?)');
-  stmt.run([name, phone, email], function(err) {
+  const stmt = db.prepare('INSERT INTO leads (name, phone, email, campaign_type) VALUES (?, ?, ?, ?)');
+  stmt.run([name, phone, email, campaign_type], function(err) {
     if (err) {
       console.error('Database error:', err);
       return res.status(500).json({ error: 'Database error' });
@@ -89,7 +144,8 @@ app.post('/api/leads', (req, res) => {
     
     res.json({
       message: 'Lead created successfully',
-      id: this.lastID
+      id: this.lastID,
+      campaign_type
     });
   });
   stmt.finalize();
@@ -156,14 +212,21 @@ function formatPhoneToE164(phone) {
 // Vapi call function
 async function initiateVapiCall(lead) {
   try {
-    console.log(`📞 Initiating Vapi call for ${lead.name} (${lead.phone})`);
+    console.log(`📞 Initiating Vapi call for ${lead.name} (${lead.phone}) - Campaign: ${lead.campaign_type}`);
     
     const formattedPhone = formatPhoneToE164(lead.phone);
     console.log(`📱 Formatted phone: ${formattedPhone}`);
     
+    // Select AI assistant and phone number based on campaign type
+    const isMarketingCampaign = lead.campaign_type === 'marketing';
+    const assistantId = isMarketingCampaign ? MARKETING_ASSISTANT_ID : FEEDBACK_ASSISTANT_ID;
+    const phoneNumberId = isMarketingCampaign ? MARKETING_PHONE_NUMBER_ID : FEEDBACK_PHONE_NUMBER_ID;
+    
+    console.log(`🤖 Using ${isMarketingCampaign ? 'Marketing' : 'Feedback'} AI: ${assistantId}`);
+    
     const callData = {
-      assistantId: VAPI_ASSISTANT_ID,
-      phoneNumberId: VAPI_PHONE_NUMBER_ID,
+      assistantId: assistantId,
+      phoneNumberId: phoneNumberId,
       customer: {
         number: formattedPhone,
         name: lead.name
@@ -172,7 +235,8 @@ async function initiateVapiCall(lead) {
         variableValues: {
           customerName: lead.name,
           customerPhone: formattedPhone,
-          customerEmail: lead.email
+          customerEmail: lead.email,
+          campaignType: lead.campaign_type
         }
       }
     };
@@ -452,6 +516,7 @@ app.post('/api/leads/bulk', upload.single('csvFile'), (req, res) => {
     return res.status(400).json({ error: 'No file uploaded' });
   }
 
+  const { campaign_type = 'feedback' } = req.body;
   const leads = [];
   const filePath = req.file.path;
 
@@ -462,7 +527,8 @@ app.post('/api/leads/bulk', upload.single('csvFile'), (req, res) => {
         leads.push({
           name: data.name.trim(),
           phone: data.phone.trim(),
-          email: data.email.trim()
+          email: data.email.trim(),
+          campaign_type: campaign_type
         });
       }
     })
@@ -485,7 +551,7 @@ app.post('/api/leads/bulk', upload.single('csvFile'), (req, res) => {
 
 // Helper function to insert bulk leads
 function insertBulkLeads(leads, res) {
-  const stmt = db.prepare('INSERT INTO leads (name, phone, email) VALUES (?, ?, ?)');
+  const stmt = db.prepare('INSERT INTO leads (name, phone, email, campaign_type) VALUES (?, ?, ?, ?)');
   
   db.serialize(() => {
     let successCount = 0;
@@ -502,7 +568,7 @@ function insertBulkLeads(leads, res) {
       
       // Insert each lead
       leads.forEach((lead, index) => {
-        stmt.run([lead.name, lead.phone, lead.email], function(err) {
+        stmt.run([lead.name, lead.phone, lead.email, lead.campaign_type], function(err) {
           completed++;
           
           if (err) {

@@ -5,6 +5,7 @@ export interface Lead {
   email: string;
   status: 'pending' | 'calling' | 'completed' | 'rejected';
   feedback?: string;
+  campaign_type?: 'feedback' | 'marketing';
   created_at: string;
   called_at?: string;
 }
@@ -13,6 +14,7 @@ export interface LeadFormData {
   name: string;
   phone: string;
   email: string;
+  campaign_type?: 'feedback' | 'marketing';
 }
 
 export interface ApiResponse<T> {
@@ -36,4 +38,10 @@ export interface BulkCallResponse {
     name: string;
     callId: string;
   }>;
+}
+
+export interface AuthResponse {
+  success: boolean;
+  role?: 'feedback' | 'marketing';
+  message: string;
 }
