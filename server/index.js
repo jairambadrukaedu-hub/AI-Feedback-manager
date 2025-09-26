@@ -18,9 +18,9 @@ const VAPI_API_KEY = process.env.VAPI_API_KEY || 'd0b02cea-e204-4550-a834-ce48bf
 const FEEDBACK_ASSISTANT_ID = process.env.FEEDBACK_ASSISTANT_ID || 'a8a7a43b-ffeb-429d-b986-e156b6a40bdf';
 const FEEDBACK_PHONE_NUMBER_ID = process.env.FEEDBACK_PHONE_NUMBER_ID || '720ecf1c-1434-4567-9e8f-ee59612843af';
 
-// Marketing AI Configuration (placeholders - you'll provide these)
-const MARKETING_ASSISTANT_ID = process.env.MARKETING_ASSISTANT_ID || 'MARKETING_ASSISTANT_TO_BE_PROVIDED';
-const MARKETING_PHONE_NUMBER_ID = process.env.MARKETING_PHONE_NUMBER_ID || 'MARKETING_PHONE_TO_BE_PROVIDED';
+// Marketing AI Configuration
+const MARKETING_ASSISTANT_ID = process.env.MARKETING_ASSISTANT_ID || '40363700-b9e5-4dce-8ca9-a26feb460c1e';
+const MARKETING_PHONE_NUMBER_ID = process.env.MARKETING_PHONE_NUMBER_ID || '720ecf1c-1434-4567-9e8f-ee59612843af';
 
 // Authentication
 const AUTH_PASSWORDS = {
